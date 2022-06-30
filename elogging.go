@@ -4,7 +4,7 @@
 //
 // when setting a level, all lower levels are logged as well, higher levels are ignored from the log
 //
-// using Print(), Printf() or Println() is ignored from the leveled mechanism
+// using Print(), Printf() or Println() is ignored from the leveled mechanism (they will be shown on the log output)
 package elogging
 
 import (
@@ -172,13 +172,13 @@ func ListScopesAndLevels() (scopes, ids, levels []string) {
 	return
 }
 
-// NewElog create a leveled logger wrapping the native golang log systee.
-// it creates a new log and provide scheme to have a log levels and a logger scope.
+// NewElog create a scoped leveled logger wrapping the native golang log package.
+// it creates a new log and provide scheme to have a scope and level for the logger.
 // the newly created logger is created with the following flags:
 //  log.Ldate | log.Lmicroseconds | log.Llongfile | log.LUTC | log.Lmsgprefix
 // level is the initial level for this log, empty level default to info level
 // out is where the log will be output, empty out default to os.stdout
-// check golang doc for additional information
+// check golang log packge doc for additional information
 func NewElog(scope, level string, out io.Writer) *Elog {
 	if out == nil {
 		out = os.Stdout
