@@ -176,9 +176,9 @@ func ListScopesAndLevels() (scopes, ids, levels []string) {
 // it creates a new log and provide scheme to have a scope and level for the logger.
 // the newly created logger is created with the following flags:
 //  log.Ldate | log.Lmicroseconds | log.Llongfile | log.LUTC | log.Lmsgprefix
-// level is the initial level for this log, empty level default to info level
-// out is where the log will be output, empty out default to os.stdout
-// check golang log packge doc for additional information
+// level is the initial level for this log, empty level default to info level.
+// out is where the log will be output, empty out default to os.stdout.
+// check golang log packge doc for additional information.
 func NewElog(scope, level string, out io.Writer) *Elog {
 	if out == nil {
 		out = os.Stdout
