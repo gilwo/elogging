@@ -231,6 +231,11 @@ func (e *Elog) SetLevel(level string) {
 	e.level = _value(_valid(level))
 }
 
+// CycleLevel change the current level of the Elog to the next level
+func (e *Elog) CycleLevel() {
+	e.level = (e.level + 1) % (lTrace + 1)
+}
+
 // GetLevel retrieve the current level of the Elog
 func (e *Elog) GetLevel() string {
 	return e.level.String()
