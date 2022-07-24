@@ -17,6 +17,7 @@ import (
 )
 
 var (
+	_defaultOut   io.Writer
 	logsActive    bool             = true
 	_logs         map[*Elog]string = map[*Elog]string{}
 	_defaultFlags                  = log.Ldate | log.Lmicroseconds | log.Llongfile | log.LUTC | log.Lmsgprefix /* Lshortfile override Llongfile */
@@ -25,6 +26,11 @@ var (
 // DefaultFlags return the currently active flags for a new Elog
 func DefaultFlags() int {
 	return _defaultFlags
+}
+
+// SetDefaultFlags replace the default flags with the given flags value
+func SetDefaultOutput(out io.Writer) {
+	_defaultOut = out
 }
 
 // SetDefaultFlags replace the default flags with the given flags value
@@ -170,6 +176,11 @@ func ListScopesAndLevels() (scopes, ids, levels []string) {
 		ids = append(ids, k._id)
 	}
 	return
+}
+
+// Create an Elog object
+func NewElogDefaults(scope string) *Elog {
+	return NewElog(scope, "info", _defaultOut)
 }
 
 // NewElog create a scoped leveled logger wrapping the native golang log package.
