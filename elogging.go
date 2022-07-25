@@ -178,6 +178,16 @@ func ListScopesAndLevels() (scopes, ids, levels []string) {
 	return
 }
 
+// GetScopedLogByID return the Elog object associated with the given ID
+func GetScopedLogByID(id string) (elog *Elog) {
+	for k := range _logs {
+		if k._id == id {
+			return k
+		}
+	}
+	return
+}
+
 // Create an Elog object
 func NewElogDefaults(scope string) *Elog {
 	return NewElog(scope, "info", _defaultOut)
@@ -190,7 +200,7 @@ func NewElogDefaults(scope string) *Elog {
 // level is the initial level for this log, empty level default to info level.
 // out is where the log will be output, empty out default to os.stdout.
 // check golang log packge doc for additional information.
-func NewElog(scope, level string, out io.Writer) *Elog {
+func NewElog(scope, level string, out io.Writer) (e *Elog) {
 	if out == nil {
 		out = os.Stdout
 	}
@@ -198,7 +208,7 @@ func NewElog(scope, level string, out io.Writer) *Elog {
 		level = "info"
 	}
 	// fmt.Printf("----- creating log with flags: [%#x]\n", _defaultFlags)
-	ret := &Elog{
+	e = &Elog{
 		scope: scope,
 		level: _value(_valid(level)),
 		_log:  log.New(out, scope, _defaultFlags),
@@ -209,10 +219,10 @@ func NewElog(scope, level string, out io.Writer) *Elog {
 		return fmt.Sprintf("%x", h.Sum(nil))
 	}
 
-	ret._id = _hash(fmt.Sprintf("%s%p", scope, ret))
+	e._id = _hash(fmt.Sprintf("%s%p", scope, e))
 
-	_logs[ret] = scope
-	return ret
+	_logs[e] = scope
+	return
 }
 
 // Clear remove this Elog from the existing Elog, the Elog is unsuable following this invocation
@@ -231,9 +241,14 @@ func (e *Elog) SetLevel(level string) {
 	e.level = _value(_valid(level))
 }
 
-// CycleLevel change the current level of the Elog to the next level
-func (e *Elog) CycleLevel() {
+// CycleLevelUp change the current level of the Elog to the next level in a cyclic manner
+func (e *Elog) CycleLevelUp() {
 	e.level = (e.level + 1) % (lTrace + 1)
+}
+
+// CycleLevelDown change the current level of the Elog to the previous level in a cyclic manner
+func (e *Elog) CycleLevelDown() {
+	e.level = (e.level - 1) % (lTrace + 1)
 }
 
 // GetLevel retrieve the current level of the Elog
