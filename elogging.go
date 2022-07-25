@@ -137,19 +137,6 @@ func (e *Elog) ID() string {
 	return e._id
 }
 
-// SetScopeLogLevelByName change log level of a scope log to level, the scope logs is looked for its name.
-// if multiple logs with the same scope name exits only the first occureance of scoped log will be changed
-//
-// TODO: not sure about this one
-func SetScopeLogLevelByName(scope, level string) {
-	for k, v := range _logs {
-		if v == scope {
-			k.SetLevel(level)
-			return
-		}
-	}
-}
-
 // SetScopeLogLevelByID change the log level of the Elog associated with the given id
 func SetScopeLogLevelByID(id, level string) {
 	for k := range _logs {
