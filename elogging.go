@@ -13,11 +13,13 @@ import (
 	"io"
 	"log"
 	"os"
+	"sort"
 	"strings"
 )
 
 var (
 	_defaultOut   io.Writer
+	_globalLevel  llevel
 	logsActive    bool             = true
 	_logs         map[*Elog]string = map[*Elog]string{}
 	_defaultFlags                  = log.Ldate | log.Lmicroseconds | log.Llongfile | log.LUTC | log.Lmsgprefix /* Lshortfile override Llongfile */
@@ -59,6 +61,15 @@ const (
 	lTrace
 )
 
+const (
+	LEVEL_Disabled = "disabled"
+	LEVEL_Error    = "error"
+	LEVEL_Warning  = "warning"
+	LEVEL_Info     = "info"
+	LEVEL_Verbose  = "verbose"
+	LEVEL_Trace    = "trace"
+)
+
 func (l llevel) String() string {
 	switch l {
 	case lDisabled:
@@ -80,17 +91,15 @@ func (l llevel) String() string {
 func _value(level string) llevel {
 	switch strings.ToLower(_valid(level)) {
 
-	case "error":
+	case "err", "error":
 		return lError
-	case "warn":
-		fallthrough
-	case "warning":
+	case "wrn", "warn", "warning":
 		return lWarn
-	case "info":
+	case "info", "inf":
 		return lInfo
-	case "verbose":
+	case "verbose", "vrb":
 		return lVerbose
-	case "trace":
+	case "trace", "trc":
 		return lTrace
 	}
 	return lDisabled
@@ -98,17 +107,15 @@ func _value(level string) llevel {
 
 func _valid(level string) string {
 	switch strings.ToLower(level) {
-	case "error":
+	case "err", "error":
 		return "ERORR"
-	case "warn":
-		fallthrough
-	case "warning":
+	case "wrn", "warn", "warning":
 		return "WARN"
-	case "info":
+	case "info", "inf":
 		return "INFO"
-	case "verbose":
+	case "verbose", "vrb":
 		return "VERBOSE"
-	case "trace":
+	case "trace", "trc":
 		return "TRACE"
 	}
 	return "DISABLE"
@@ -137,6 +144,11 @@ func (e *Elog) ID() string {
 	return e._id
 }
 
+// SetGlobalLogLevel change the log level of all the Elog objects
+func SetGlobalLogLevel(level string) {
+	_globalLevel = _value(_valid(level))
+}
+
 // SetScopeLogLevelByID change the log level of the Elog associated with the given id
 func SetScopeLogLevelByID(id, level string) {
 	for k := range _logs {
@@ -147,11 +159,18 @@ func SetScopeLogLevelByID(id, level string) {
 	}
 }
 
-// ListScopedLogs return a list of all the existing Elog
+type elogList []*Elog
+
+func (a elogList) Len() int           { return len(a) }
+func (a elogList) Swap(i, j int)      { a[i], a[j] = a[j], a[i] }
+func (a elogList) Less(i, j int) bool { return a[i].String() < a[j].String() }
+
+// ListScopedLogs return a list of all the existing Elog objects (sorted)
 func ListScopedLogs() (elogs []*Elog) {
 	for k := range _logs {
 		elogs = append(elogs, k)
 	}
+	sort.Sort(elogList(elogs))
 	return
 }
 
@@ -330,9 +349,10 @@ func (e *Elog) Trace(args ...interface{}) {
 }
 
 func (e *Elog) _logf(level llevel, format string, args ...interface{}) {
-	if level > e.level || !logsActive {
+	if !(logsActive && (level <= e.level || (_globalLevel > lDisabled && level <= _globalLevel))) {
 		return
 	}
+
 	header := " (" + _valid(level.String()) + ") "
 	if format == "" {
 		e._log.Output(3, header+fmt.Sprint(args...))
