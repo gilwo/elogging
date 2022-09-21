@@ -108,7 +108,7 @@ func _value(level string) llevel {
 func _valid(level string) string {
 	switch strings.ToLower(level) {
 	case "err", "error":
-		return "ERORR"
+		return "ERROR"
 	case "wrn", "warn", "warning":
 		return "WARN"
 	case "info", "inf":
