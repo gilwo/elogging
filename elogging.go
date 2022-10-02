@@ -1,10 +1,21 @@
-// enhanced logging library with leveling and scope support
+// package elogging provide enhanced logging capbilities with leveling and scope support
+//
+// Levels
 //
 // levels are ordered : disabled (lowest - no output), error, warning, info, verbose, trace (highest)
 //
 // when setting a level, all lower levels are logged as well, higher levels are ignored from the log
 //
 // using Print(), Printf() or Println() is ignored from the leveled mechanism (they will be shown on the log output)
+//
+// Log Objects
+//
+// all log objects are accessiable from the library and can me manipulated as well
+//
+// Defaults
+//
+// when creating log objects, global defaults paramaters are set to each created log object.
+// it is possible to change the log object paramters on the fly.
 package elogging
 
 import (
@@ -229,6 +240,14 @@ func NewElog(scope, level string, out io.Writer) (e *Elog) {
 
 	_logs[e] = scope
 	return
+}
+
+// SetOutput allow to change the log output, previous log messages are not kept
+func (e *Elog) SetOutput(out io.Writer) {
+	if out == nil {
+		out = os.Stdout
+	}
+	e._log = log.New(out, e.scope, e.GetFlags())
 }
 
 // Clear remove this Elog from the existing Elog, the Elog is unsuable following this invocation
