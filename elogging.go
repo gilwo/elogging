@@ -138,6 +138,7 @@ type Elog struct {
 	level llevel
 	_log  *log.Logger
 	_id   string
+	_out  io.Writer
 }
 
 // String descrption of an Elog instance
@@ -229,6 +230,7 @@ func NewElog(scope, level string, out io.Writer) (e *Elog) {
 		scope: scope,
 		level: _value(_valid(level)),
 		_log:  log.New(out, scope, _defaultFlags),
+		_out:  out,
 	}
 	_hash := func(s string) string {
 		h := sha1.New()
@@ -242,12 +244,25 @@ func NewElog(scope, level string, out io.Writer) (e *Elog) {
 	return
 }
 
-// SetOutput allow to change the log output, previous log messages are not kept
-func (e *Elog) SetOutput(out io.Writer) {
-	if out == nil {
-		out = os.Stdout
+// SetOutput allow to change the parameters of the log; output, level and output, previous log messages are not kept if output is changed
+func (e *Elog) ModifyParams(modScope, modLevel string, modOut io.Writer) *Elog {
+	changed := false
+	if modScope != "" && modScope != e.scope {
+		e.scope = modScope
+		changed = true
 	}
-	e._log = log.New(out, e.scope, e.GetFlags())
+	if modOut != nil && modOut != e._out {
+		e._out = modOut
+		changed = true
+	}
+	if modLevel != "" && modLevel != e.level.String() {
+		e.level = _value(_valid(modLevel))
+		changed = true
+	}
+	if changed {
+		e._log = log.New(e._out, e.scope, e.GetFlags())
+	}
+	return e
 }
 
 // Clear remove this Elog from the existing Elog, the Elog is unsuable following this invocation
