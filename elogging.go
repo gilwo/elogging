@@ -29,11 +29,13 @@ import (
 )
 
 var (
-	_defaultOut   io.Writer
-	_globalLevel  llevel
-	logsActive    bool             = true
-	_logs         map[*Elog]string = map[*Elog]string{}
-	_defaultFlags                  = log.Ldate | log.Lmicroseconds | log.Llongfile | log.LUTC | log.Lmsgprefix /* Lshortfile override Llongfile */
+	_stdLog              *Elog
+	_defaultOut          io.Writer
+	_globalLevel         llevel
+	logsActive           bool             = true
+	elogLikeLogBehaviour bool             = true
+	_logs                map[*Elog]string = map[*Elog]string{}
+	_defaultFlags                         = log.Ldate | log.Lmicroseconds | log.Llongfile | log.LUTC | log.Lmsgprefix /* Lshortfile override Llongfile */
 )
 
 // DefaultFlags return the currently active flags for a new Elog
@@ -44,6 +46,9 @@ func DefaultFlags() int {
 // SetDefaultFlags replace the default flags with the given flags value
 func SetDefaultOutput(out io.Writer) {
 	_defaultOut = out
+}
+func GetDefaultOutput() io.Writer {
+	return _defaultOut
 }
 
 // SetDefaultFlags replace the default flags with the given flags value
@@ -232,11 +237,6 @@ func NewElog(scope, level string, out io.Writer) (e *Elog) {
 		_log:  log.New(out, scope, _defaultFlags),
 		_out:  out,
 	}
-	_hash := func(s string) string {
-		h := sha1.New()
-		h.Write([]byte(s))
-		return fmt.Sprintf("%x", h.Sum(nil))
-	}
 
 	e._id = _hash(fmt.Sprintf("%s%p", scope, e))
 
@@ -246,22 +246,19 @@ func NewElog(scope, level string, out io.Writer) (e *Elog) {
 
 // SetOutput allow to change the parameters of the log; output, level and output, previous log messages are not kept if output is changed
 func (e *Elog) ModifyParams(modScope, modLevel string, modOut io.Writer) *Elog {
-	changed := false
 	if modScope != "" && modScope != e.scope {
 		e.scope = modScope
-		changed = true
+		e._log.SetPrefix(modScope)
 	}
 	if modOut != nil && modOut != e._out {
 		e._out = modOut
-		changed = true
+		e._log.SetOutput(modOut)
 	}
 	if modLevel != "" && modLevel != e.level.String() {
 		e.level = _value(_valid(modLevel))
-		changed = true
 	}
-	if changed {
-		e._log = log.New(e._out, e.scope, e.GetFlags())
-	}
+	e._id = _hash(fmt.Sprintf("%s%p", modScope, e))
+	_logs[e] = modScope
 	return e
 }
 
@@ -408,4 +405,86 @@ func (e *Elog) _logf(level llevel, format string, args ...interface{}) {
 	} else {
 		e._log.Output(3, header+fmt.Sprintf(format, args...))
 	}
+}
+
+func init() {
+	_stdLog = &Elog{
+		scope: "",
+		level: lTrace,
+		_log:  log.Default(),
+		_out:  os.Stderr,
+	}
+
+	_stdLog._id = _hash(fmt.Sprintf("%s%p", _stdLog.scope, _stdLog))
+
+	_logs[_stdLog] = _stdLog.scope
+}
+
+// Println - same behavior as in original log when internal behaviour is propogate
+func Println(args ...interface{}) {
+	if elogLikeLogBehaviour {
+		_stdLog._log.Println(args...)
+		return
+	}
+	if !logsActive {
+		return
+	}
+	_stdLog._log.Output(2, " (Println) "+fmt.Sprintln(args...))
+}
+
+// Printf - same behavior as in original log when internal behaviour is propogate
+func Printf(format string, args ...interface{}) {
+	if elogLikeLogBehaviour {
+		_stdLog._log.Printf(format, args...)
+		return
+	}
+	if !logsActive {
+		return
+	}
+	_stdLog._log.Output(2, " (Printf) "+fmt.Sprintf(format, args...))
+}
+
+// Print - same behavior as in original log when internal behaviour is propogate
+func Print(args ...interface{}) {
+	if elogLikeLogBehaviour {
+		_stdLog._log.Print(args...)
+		return
+	}
+	if !logsActive {
+		return
+	}
+	_stdLog._log.Output(2, " (Print) "+fmt.Sprint(args...))
+}
+
+func Fatal(args ...interface{}) {
+	_stdLog._log.Fatal(args...)
+}
+func Fatalf(format string, args ...interface{}) {
+	_stdLog._log.Fatalf(format, args...)
+}
+
+func Fatalln(args ...interface{}) {
+	_stdLog._log.Fatalln(args...)
+}
+
+func Panic(args ...interface{}) {
+	_stdLog._log.Panic(args...)
+}
+func Panicf(format string, args ...interface{}) {
+	_stdLog._log.Panicf(format, args...)
+}
+func Panicln(args ...interface{}) {
+	_stdLog._log.Panicln(args...)
+}
+
+func DefaultLog() *Elog {
+	return _stdLog
+}
+
+// util
+
+func _hash(s string) string {
+	h := sha1.New()
+	h.Write([]byte(s))
+	return fmt.Sprintf("%x", h.Sum(nil))
 }
