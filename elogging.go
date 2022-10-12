@@ -382,6 +382,21 @@ func (e *Elog) Trace(args ...interface{}) {
 	e._logf(lTrace, "", args...)
 }
 
+func (e *Elog) Condf(condition bool, trueLevel, falseLevel, format string, args ...interface{}) {
+	if condition {
+		e._logf(_value(_valid(trueLevel)), format, args...)
+	} else {
+		e._logf(_value(_valid(falseLevel)), format, args...)
+	}
+}
+func (e *Elog) Cond(condition bool, trueLevel, falseLevel string, args ...interface{}) {
+	if condition {
+		e._logf(_value(_valid(trueLevel)), "", args...)
+	} else {
+		e._logf(_value(_valid(falseLevel)), "", args...)
+	}
+}
+
 func (e *Elog) _logf(level llevel, format string, args ...interface{}) {
 	if !(logsActive && (level <= e.level || (_globalLevel > lDisabled && level <= _globalLevel))) {
 		return
