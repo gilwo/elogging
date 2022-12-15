@@ -1,6 +1,6 @@
 // package elogging provide enhanced logging capbilities with leveling and scope support
 //
-// Levels
+// # Levels
 //
 // levels are ordered : disabled (lowest - no output), error, warning, info, verbose, trace (highest)
 //
@@ -8,11 +8,11 @@
 //
 // using Print(), Printf() or Println() is ignored from the leveled mechanism (they will be shown on the log output)
 //
-// Log Objects
+// # Log Objects
 //
 // all log objects are accessiable from the library and can me manipulated as well
 //
-// Defaults
+// # Defaults
 //
 // when creating log objects, global defaults paramaters are set to each created log object.
 // it is possible to change the log object paramters on the fly.
@@ -23,20 +23,36 @@ import (
 	"fmt"
 	"io"
 	"log"
+	"math"
 	"os"
 	"sort"
 	"strings"
 )
 
-var (
-	_stdLog              *Elog
-	_defaultOut          io.Writer
-	_globalLevel         llevel
-	logsActive           bool             = true
-	elogLikeLogBehaviour bool             = true
-	_logs                map[*Elog]string = map[*Elog]string{}
-	_defaultFlags                         = log.Ldate | log.Lmicroseconds | log.Llongfile | log.LUTC | log.Lmsgprefix /* Lshortfile override Llongfile */
+const (
+	ELSuppressRepeated = 1 << iota
+	ELLikeDefaultLog
 )
+
+var (
+	_stdLog       *Elog
+	_defaultOut   io.Writer = os.Stderr
+	_globalLevel  llevel
+	logsActive    bool             = true
+	_logs         map[*Elog]string = map[*Elog]string{}
+	_defaultFlags int              = log.Ldate | log.Lmicroseconds | log.Llongfile | log.LUTC | log.Lmsgprefix /* Lshortfile override Llongfile */
+	_elFlags      int              = ELLikeDefaultLog
+)
+
+func GetEloggingFlags() int {
+	return _elFlags
+}
+func SetEloggingFlags(flags int) {
+	_elFlags = flags
+}
+func checkElFlag(flags int) bool {
+	return _elFlags&flags != 0
+}
 
 // DefaultFlags return the currently active flags for a new Elog
 func DefaultFlags() int {
@@ -139,11 +155,13 @@ func _valid(level string) string {
 
 // Elog represent a scoped leveled log
 type Elog struct {
-	scope string
-	level llevel
-	_log  *log.Logger
-	_id   string
-	_out  io.Writer
+	scope       string
+	level       llevel
+	_log        *log.Logger
+	_id         string
+	_out        io.Writer
+	__lastMsg   string
+	__lastCount int
 }
 
 // String descrption of an Elog instance
@@ -180,7 +198,7 @@ type elogList []*Elog
 
 func (a elogList) Len() int           { return len(a) }
 func (a elogList) Swap(i, j int)      { a[i], a[j] = a[j], a[i] }
-func (a elogList) Less(i, j int) bool { return a[i].String() < a[j].String() }
+func (a elogList) Less(i, j int) bool { return a[i].scope < a[j].scope }
 
 // ListScopedLogs return a list of all the existing Elog objects (sorted)
 func ListScopedLogs() (elogs []*Elog) {
@@ -219,7 +237,9 @@ func NewElogDefaults(scope string) *Elog {
 // NewElog create a scoped leveled logger wrapping the native golang log package.
 // it creates a new log and provide scheme to have a scope and level for the logger.
 // the newly created logger is created with the following flags:
-//  log.Ldate | log.Lmicroseconds | log.Llongfile | log.LUTC | log.Lmsgprefix
+//
+//	log.Ldate | log.Lmicroseconds | log.Llongfile | log.LUTC | log.Lmsgprefix
+//
 // level is the initial level for this log, empty level default to info level.
 // out is where the log will be output, empty out default to os.stdout.
 // check golang log packge doc for additional information.
@@ -257,8 +277,8 @@ func (e *Elog) ModifyParams(modScope, modLevel string, modOut io.Writer) *Elog {
 	if modLevel != "" && modLevel != e.level.String() {
 		e.level = _value(_valid(modLevel))
 	}
-	e._id = _hash(fmt.Sprintf("%s%p", modScope, e))
-	_logs[e] = modScope
+	e._id = _hash(fmt.Sprintf("%s%p", e.scope, e))
+	_logs[e] = e.scope
 	return e
 }
 
@@ -400,11 +420,43 @@ func (e *Elog) _logf(level llevel, format string, args ...interface{}) {
 	}
 
 	header := " (" + _valid(level.String()) + ") "
+	msg := ""
 	if format == "" {
-		e._log.Output(3, header+fmt.Sprint(args...))
+		msg = header + fmt.Sprint(args...)
 	} else {
-		e._log.Output(3, header+fmt.Sprintf(format, args...))
+		msg = header + fmt.Sprintf(format, args...)
 	}
+
+	if !checkElFlag(ELSuppressRepeated) {
+		e._log.Output(3, msg)
+		return
+	}
+
+	if msg == e.__lastMsg {
+		e.__lastCount += 1
+		msg = fmt.Sprintf(" last message repeated %d times", e.__lastCount)
+	} else {
+		e.__lastCount = 0
+		e.__lastMsg = msg
+	}
+
+	if isPowerOfThree(e.__lastCount) || e.__lastCount == 0 {
+		if e.__lastCount > 9 {
+			msg += " (too many times)"
+		}
+		e._log.Output(3, msg)
+	}
+}
+
+func isPowerOfThree(n int) bool {
+
+	ansFloat := math.Log(float64(n)) / math.Log(3.0)
+	ansInt := int(ansFloat)
+
+	//Rounding to the 9th digit
+	ansFloat = math.Round(ansFloat*1000000000) / 1000000000
+
+	return ansFloat == float64(ansInt)
 }
 
 func init() {
@@ -422,11 +474,11 @@ func init() {
 
 // Println - same behavior as in original log when internal behaviour is propogate
 func Println(args ...interface{}) {
-	if elogLikeLogBehaviour {
+	if checkElFlag(ELLikeDefaultLog) {
 		_stdLog._log.Println(args...)
 		return
 	}
-	if !logsActive {
+	if !logsActive || _stdLog.level == lDisabled {
 		return
 	}
 	_stdLog._log.Output(2, " (Println) "+fmt.Sprintln(args...))
@@ -434,11 +486,11 @@ func Println(args ...interface{}) {
 
 // Printf - same behavior as in original log when internal behaviour is propogate
 func Printf(format string, args ...interface{}) {
-	if elogLikeLogBehaviour {
+	if checkElFlag(ELLikeDefaultLog) {
 		_stdLog._log.Printf(format, args...)
 		return
 	}
-	if !logsActive {
+	if !logsActive || _stdLog.level == lDisabled {
 		return
 	}
 	_stdLog._log.Output(2, " (Printf) "+fmt.Sprintf(format, args...))
@@ -446,11 +498,11 @@ func Printf(format string, args ...interface{}) {
 
 // Print - same behavior as in original log when internal behaviour is propogate
 func Print(args ...interface{}) {
-	if elogLikeLogBehaviour {
+	if checkElFlag(ELLikeDefaultLog) {
 		_stdLog._log.Print(args...)
 		return
 	}
-	if !logsActive {
+	if !logsActive || _stdLog.level == lDisabled {
 		return
 	}
 	_stdLog._log.Output(2, " (Print) "+fmt.Sprint(args...))

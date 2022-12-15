@@ -51,3 +51,35 @@ func TestLogToBuf(t *testing.T) {
 		t.Error("expcted trace level message")
 	}
 }
+
+func TestSuppress(t *testing.T) {
+
+	buf := []byte{}
+	b := bytes.NewBuffer(buf)
+	SetEloggingFlags(GetEloggingFlags() | ELSuppressRepeated)
+	elog := NewElog("TestLogSuppress", "info", b)
+	for i := 0; i < 27; i++ {
+		elog.Info("same message")
+	}
+	bufMsg := b.String()
+	if strings.Count(bufMsg, "last message repeated") != 3 {
+		t.Error("mismatch repeated count")
+	}
+	b.Reset()
+	for i := 0; i < 82; i++ {
+		elog.Info("same message2")
+	}
+	bufMsg = b.String()
+	if strings.Count(bufMsg, "(too many times)") != 2 {
+		t.Error("mismatch too many count")
+	}
+	b.Reset()
+	SetEloggingFlags(GetEloggingFlags() & ^ELSuppressRepeated)
+	for i := 0; i < 82; i++ {
+		elog.Info("same message3")
+	}
+	bufMsg = b.String()
+	if strings.Count(bufMsg, "same message3") != 82 {
+		t.Error("mismatch repeated count")
+	}
+}

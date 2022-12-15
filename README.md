@@ -12,4 +12,7 @@
 * control output for each log object 
 * change default setting for log creation
 * globally set log level
-
+* optional feature - mimic standard log behviour or enhance with elogging capbilites (levels, on/off)
+  - mimic `print`, `fatal`, `panic` standard  family functions
+  - enhance only print family (`Printf()`, `Println()`, `Print()`)
+* optional feature - supress repeated messages, but still get indication (use modulu power of 3 for indications)
