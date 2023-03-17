@@ -83,3 +83,33 @@ func TestSuppress(t *testing.T) {
 		t.Error("mismatch repeated count")
 	}
 }
+
+func TestStructured(t *testing.T) {
+	buf := []byte{}
+	b := bytes.NewBuffer(buf)
+	SetEloggingFlags(GetEloggingFlags() | ELStructuredLog)
+	elog := NewElog("TestLogStructured", "info", b)
+	elog.Infof("message", "number", 1, "string", "st", "slice", []string{"1", "2"}, "map", map[string]int{"a": 1, "b": 2})
+	bufMsg := b.String()
+	t.Logf("output\n")
+	t.Logf(bufMsg)
+	b.Reset()
+
+	elog.Infof("message2", "number")
+	bufMsg = b.String()
+	t.Logf("output2\n")
+	t.Logf(bufMsg)
+	b.Reset()
+
+	elog.Infof("message3", 1, 2, 3)
+	bufMsg = b.String()
+	t.Logf("output3\n")
+	t.Logf(bufMsg)
+	b.Reset()
+
+	elog.Infof("message4", 4)
+	bufMsg = b.String()
+	t.Logf("output4\n")
+	t.Logf(bufMsg)
+	b.Reset()
+}

@@ -20,6 +20,7 @@ package elogging
 
 import (
 	"crypto/sha1"
+	"encoding/json"
 	"fmt"
 	"io"
 	"log"
@@ -32,6 +33,7 @@ import (
 const (
 	ELSuppressRepeated = 1 << iota
 	ELLikeDefaultLog
+	ELStructuredLog
 )
 
 var (
@@ -414,8 +416,39 @@ func (e *Elog) Cond(condition bool, trueLevel, falseLevel string, args ...interf
 	}
 }
 
+func (e *Elog) _logStructured(level llevel, msg string, args ...interface{}) {
+	m := map[string]interface{}{}
+	m["scope"] = e.scope
+	m["level"] = level
+	m["level.limit"] = e.level
+	m["message"] = msg
+	for i := 0; i < len(args)/2; i += 1 {
+		s, ok := args[i*2].(string)
+		if ok {
+			m[s] = args[i*2+1]
+		} else {
+			m[fmt.Sprintf("_field.invalid.key.%d", i*2)] = args[i*2]
+			m[fmt.Sprintf("_field.invalid.val.%d", i*2+1)] = args[i*2+1]
+		}
+	}
+	if len(args)%2 > 0 {
+		m[fmt.Sprintf("_field.invalid.key.%d", len(args)-1)] = args[len(args)-1]
+	}
+	out, err := json.Marshal(m)
+	if err != nil {
+		e._log.Writer().Write([]byte("!!!! error in log line"))
+	} else {
+		e._log.Writer().Write(out)
+		e._log.Writer().Write([]byte("\n"))
+	}
+}
 func (e *Elog) _logf(level llevel, format string, args ...interface{}) {
 	if !(logsActive && (level <= e.level || (_globalLevel > lDisabled && level <= _globalLevel))) {
+		return
+	}
+
+	if checkElFlag(ELStructuredLog) {
+		e._logStructured(level, format, args...)
 		return
 	}
 
